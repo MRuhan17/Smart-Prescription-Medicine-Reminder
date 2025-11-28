@@ -1,33 +1,43 @@
-Project Overview
-Smart Prescription & Medicine Reminder helps users (patients & caregivers) by:
+# Smart Prescription & Medicine Reminder
 
-Scanning a handwritten/printed prescription.
+A mobile-first healthcare solution designed to help patients manage complex medication schedules.
 
-Extracting medicine names, dosages, timing (morning/noon/night) via OCR + parsing.
+## Features
+- **Authentication**: Login and Signup
+- **Dashboard**: Quick access to all features
+- **Prescription Scanning**: OCR integration to extract medicines from images
+- **Medicine Management**: Add, edit, and delete medicines
+- **Reminders**: Schedule notifications for doses
+- **History**: Track taken and missed doses
 
-Creating scheduled reminders and push/voice notifications.
+## Prerequisites
+- Node.js (v14 or later)
+- npm or yarn
+- Expo Go app on your mobile device (for testing)
 
-Letting users mark doses taken/missed and viewing history.
+## Setup
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-Sending caregiver notifications and refill alerts (post‑MVP).
+2. Start the development server:
+   ```bash
+   npm start
+   ```
 
-MVP Features
-Prescription image upload & OCR extraction (ML Kit on device; cloud Vision fallback)
+3. Scan the QR code with the Expo Go app (Android) or Camera app (iOS).
 
-Medicine parsing & prefilled reminder creation
+## Project Structure
+- `src/screens`: Application screens
+- `src/components`: Reusable UI components
+- `src/services`: API, Auth, OCR, and Notification services
+- `src/context`: Global state management (Auth)
+- `src/utils`: Helper functions and configuration
 
-Create / update / delete reminders (user-level)
-
-Local + server persistence of reminders & dose history
-
-Push notifications and “Mark as Taken” flow
-
-Simple authentication (email / Firebase Auth)
-
-Tech Stack
-Frontend: Flutter (single codebase mobile app)
-Backend: Node.js + Express OR Supabase (for speed). Deployed on Render / Vercel / Heroku.
-Auth & DB: Firebase Auth + Firestore OR Supabase Postgres
-OCR: Google ML Kit (on device) + Google Vision API (cloud fallback)
-Push Notifications: Firebase Cloud Messaging (FCM)
-Extras: Docker for backend, GitHub Actions for CI, simple nginx on deploy
+## Tech Stack
+- React Native (Expo)
+- React Navigation
+- React Native Paper (UI)
+- Expo Camera & Image Picker
+- Axios (API)
