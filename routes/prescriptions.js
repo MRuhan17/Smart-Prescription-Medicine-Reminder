@@ -46,6 +46,17 @@ const upload = multer({
     }
 });
 
+// Helper function to safely delete file
+const safeDeleteFile = (filePath) => {
+    if (filePath && fs.existsSync(filePath)) {
+        try {
+            fs.unlinkSync(filePath);
+        } catch (err) {
+            console.error('Error deleting file:', err);
+        }
+    }
+};
+
 // Upload Prescription and Process OCR
 router.post('/upload', authMiddleware, upload.single('prescription'), async (req, res) => {
     if (!req.file) {
@@ -59,7 +70,7 @@ router.post('/upload', authMiddleware, upload.single('prescription'), async (req
         const { data: { text } } = await Tesseract.recognize(imagePath, 'eng');
 
         // Clean up uploaded file
-        fs.unlinkSync(imagePath);
+        safeDeleteFile(imagePath);
 
         // Save to DB
         const prescription = await prisma.prescription.create({
@@ -73,9 +84,7 @@ router.post('/upload', authMiddleware, upload.single('prescription'), async (req
         res.json({ message: 'Prescription processed', text, prescriptionId: prescription.id });
     } catch (error) {
         // Clean up file on error
-        if (fs.existsSync(imagePath)) {
-            fs.unlinkSync(imagePath);
-        }
+        safeDeleteFile(imagePath);
         console.error('OCR Processing error:', error);
         res.status(500).json({ message: 'OCR Processing failed' });
     }
