@@ -1,0 +1,10 @@
+thefuzz
+python-Levenshtein
+fastapi
+uvicorn
+httpx
+sqlalchemy
+opencv-python
+numpy
+Pillow
+pytesseract
