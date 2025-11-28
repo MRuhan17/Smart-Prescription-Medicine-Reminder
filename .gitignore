@@ -34,3 +34,9 @@ Thumbs.db
 # Build
 dist/
 build/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
