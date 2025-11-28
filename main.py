@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException, Depends
+import os
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 
@@ -14,30 +15,43 @@ import crud
 # Initialize DB tables
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Prescription OCR API", version="1.0.0")
+app = FastAPI(
+    title="Prescription OCR API",
+    version="1.0.0",
+    description="API for parsing prescription text and managing medicine reminders"
+)
 
 # Initialize AI Parser
 ai_parser = PrescriptionParser()
 
 # --- CORS Configuration ---
+# Get allowed origins from environment or default to all for development
+allowed_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for now (dev mode)
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
 # --- Pydantic Models ---
 class OCRRequest(BaseModel):
-    text: str
+    text: str = Field(..., min_length=1, max_length=10000)
 
 class Medicine(BaseModel):
-    name: str
-    dosage: List[str]
-    timing: List[str]
-    duration: List[str]
-    food_instruction: List[str]
+    name: str = Field(..., min_length=1, max_length=200)
+    dosage: List[str] = Field(default_factory=list)
+    timing: List[str] = Field(default_factory=list)
+    duration: List[str] = Field(default_factory=list)
+    food_instruction: List[str] = Field(default_factory=list)
+    
+    @validator('name')
+    def name_must_not_be_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Medicine name cannot be empty')
+        return v.strip()
 
 class Reminder(BaseModel):
     medicine: str
@@ -47,10 +61,10 @@ class Reminder(BaseModel):
 
 class RefillInfo(BaseModel):
     medicine: str
-    total_quantity_needed: int
+    total_quantity_needed: int = Field(..., ge=0)
     refill_due_date: str
-    duration_days: int
-    daily_frequency: int
+    duration_days: int = Field(..., ge=0)
+    daily_frequency: int = Field(..., ge=0)
 
 class ParseResponse(BaseModel):
     medicines: List[Medicine]
@@ -64,7 +78,18 @@ class SaveRequest(BaseModel):
     refill_info: List[RefillInfo]
 
 class ParseRequest(BaseModel):
-    text: str
+    text: str = Field(..., min_length=1, max_length=10000, description="Raw prescription text to parse")
+    
+    @validator('text')
+    def text_must_not_be_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Text cannot be empty')
+        return v.strip()
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for deployment monitoring."""
+    return {"status": "healthy"}
 
 @app.post("/parse", response_model=ParseResponse)
 def parse_prescription(request: ParseRequest, db: Session = Depends(get_db)):
@@ -98,8 +123,8 @@ def parse_prescription(request: ParseRequest, db: Session = Depends(get_db)):
                 "medicine": med["name"],
                 "total_quantity_needed": med.get("quantity_required", 0),
                 "refill_due_date": med.get("estimated_refill_date", ""),
-                "duration_days": 0, # AI engine might not return raw days int easily, but we can infer or ignore
-                "daily_frequency": 0 # AI engine handles this internally
+                "duration_days": 0,
+                "daily_frequency": 0
             })
 
         return {
@@ -108,10 +133,12 @@ def parse_prescription(request: ParseRequest, db: Session = Depends(get_db)):
             "reminders": reminders,
             "refill_info": refill_info
         }
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error processing prescription")
 
 @app.post("/save")
 async def save_prescription(data: SaveRequest, db: Session = Depends(get_db)):
@@ -119,6 +146,9 @@ async def save_prescription(data: SaveRequest, db: Session = Depends(get_db)):
     Saves the confirmed prescription data to the database.
     """
     try:
+        if not data.medicines:
+            raise HTTPException(status_code=400, detail="No medicines to save")
+            
         saved_medicines = []
         
         # Group reminders and refill info by medicine name for easy access
@@ -146,21 +176,36 @@ async def save_prescription(data: SaveRequest, db: Session = Depends(get_db)):
             saved_medicines.append(db_med.name)
             
         return {"message": "Prescription saved successfully", "saved_medicines": saved_medicines}
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Error saving prescription")
 
 @app.get("/medicines")
-async def get_all_medicines(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+async def get_all_medicines(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
+    db: Session = Depends(get_db)
+):
     """
-    Get all saved medicines.
+    Get all saved medicines with pagination.
     """
     medicines = crud.get_medicines(db, skip=skip, limit=limit)
     return medicines
 
 @app.get("/")
 async def root():
-    return {"message": "Prescription OCR API is running. Use POST /parse to extract data."}
+    """Root endpoint with API information."""
+    return {
+        "message": "Prescription OCR API is running",
+        "docs": "/docs",
+        "health": "/health"
+    }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host=host, port=port)

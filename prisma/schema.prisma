@@ -25,26 +25,28 @@ model User {
 }
 
 model Medicine {
-  id          Int      @id @default(autoincrement())
+  id          Int        @id @default(autoincrement())
   name        String
   dosage      String
-  frequency   String   // e.g., "1-0-1"
+  frequency   String     // e.g., "1-0-1"
   stock       Int
   expiryDate  DateTime?
+  createdAt   DateTime   @default(now())
   userId      Int
-  user        User     @relation(fields: [userId], references: [id])
+  user        User       @relation(fields: [userId], references: [id])
   schedules   Schedule[]
 }
 
 model Schedule {
-  id         Int      @id @default(autoincrement())
+  id         Int       @id @default(autoincrement())
   medicineId Int
-  medicine   Medicine @relation(fields: [medicineId], references: [id])
+  medicine   Medicine  @relation(fields: [medicineId], references: [id], onDelete: Cascade)
   userId     Int
-  user       User     @relation(fields: [userId], references: [id])
-  time       DateTime // The scheduled time for the dose
-  status     String   // "PENDING", "TAKEN", "MISSED"
+  user       User      @relation(fields: [userId], references: [id])
+  time       DateTime  // The scheduled time for the dose
+  status     String    // "PENDING", "TAKEN", "MISSED"
   takenAt    DateTime?
+  createdAt  DateTime  @default(now())
 }
 
 model Prescription {
