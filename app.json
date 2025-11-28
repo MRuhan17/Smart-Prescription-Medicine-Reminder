@@ -15,16 +15,21 @@
             "**/*"
         ],
         "ios": {
-            "supportsTablet": true
+            "supportsTablet": true,
+            "bundleIdentifier": "com.smartprescription.reminder"
         },
         "android": {
             "adaptiveIcon": {
                 "foregroundImage": "./assets/adaptive-icon.png",
                 "backgroundColor": "#ffffff"
-            }
+            },
+            "package": "com.smartprescription.reminder"
         },
         "web": {
             "favicon": "./assets/favicon.png"
+        },
+        "extra": {
+            "apiBaseUrl": "http://localhost:8000"
         }
     }
 }

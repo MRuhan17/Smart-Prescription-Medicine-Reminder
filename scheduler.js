@@ -4,41 +4,83 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const initScheduler = () => {
-    // Run every minute
-    cron.schedule('* * * * *', async () => {
-        console.log('Checking for due medicines...');
+    console.log('Initializing medication reminder scheduler...');
+    
+    const cronExpression = '* * * * *'; // Run every minute
+    
+    let task;
+    try {
+        // Run every minute
+        task = cron.schedule(cronExpression, async () => {
+            const now = new Date();
+            const fiveMinutesAgo = new Date(now.getTime() - 5 * 60000);
 
-        const now = new Date();
-        const fiveMinutesAgo = new Date(now.getTime() - 5 * 60000);
-
-        try {
-            // Find pending schedules due in the past 5 minutes (to catch any slightly missed ones)
-            // In a real app, you'd be more precise or use a queue
-            const dueSchedules = await prisma.schedule.findMany({
-                where: {
-                    status: 'PENDING',
-                    time: {
-                        lte: now,
-                        gte: fiveMinutesAgo
+            try {
+                // Find pending schedules due in the past 5 minutes (to catch any slightly missed ones)
+                // In a real app, you'd be more precise or use a queue
+                const dueSchedules = await prisma.schedule.findMany({
+                    where: {
+                        status: 'PENDING',
+                        time: {
+                            lte: now,
+                            gte: fiveMinutesAgo
+                        }
+                    },
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                email: true
+                            }
+                        },
+                        medicine: {
+                            select: {
+                                id: true,
+                                name: true,
+                                dosage: true
+                            }
+                        }
                     }
-                },
-                include: {
-                    user: true,
-                    medicine: true
+                });
+
+                if (dueSchedules.length > 0) {
+                    console.log(`[${now.toISOString()}] Found ${dueSchedules.length} due medication reminders`);
                 }
-            });
 
-            for (const schedule of dueSchedules) {
-                // Trigger Notification
-                console.log(`[REMINDER] Hey ${schedule.user.name}, it's time to take your ${schedule.medicine.name} (${schedule.medicine.dosage})!`);
+                for (const schedule of dueSchedules) {
+                    // Trigger Notification
+                    console.log(`[REMINDER] Hey ${schedule.user.name}, it's time to take your ${schedule.medicine.name} (${schedule.medicine.dosage})!`);
 
-                // Mark as NOTIFIED (if we had such a status) or just log it
-                // For now, we keep it PENDING until the user marks it as TAKEN via API
+                    // In production, send actual notification (push notification, email, SMS)
+                    // await sendPushNotification(schedule.user, schedule.medicine);
+                    
+                    // Mark as NOTIFIED (if we had such a status) or just log it
+                    // For now, we keep it PENDING until the user marks it as TAKEN via API
+                }
+            } catch (error) {
+                console.error('Scheduler Error:', error.message);
             }
-        } catch (error) {
-            console.error('Scheduler Error:', error);
-        }
+        });
+    } catch (error) {
+        console.error('Failed to initialize scheduler:', error.message);
+        return;
+    }
+
+    // Handle graceful shutdown
+    process.on('SIGTERM', () => {
+        console.log('Stopping scheduler due to SIGTERM...');
+        if (task) task.stop();
+        prisma.$disconnect();
     });
+
+    process.on('SIGINT', () => {
+        console.log('Stopping scheduler due to SIGINT...');
+        if (task) task.stop();
+        prisma.$disconnect();
+    });
+
+    console.log('Medication reminder scheduler started successfully');
 };
 
 module.exports = initScheduler;
