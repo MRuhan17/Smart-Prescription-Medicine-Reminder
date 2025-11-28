@@ -4,7 +4,8 @@
     "builder": "nixpacks"
   },
   "deploy": {
-    "startCommand": "npm start",
+    "rootDirectory": "backend_bala",
+    "startCommand": "node index.js",
     "restartPolicyMaxRetries": 10
   }
 }
