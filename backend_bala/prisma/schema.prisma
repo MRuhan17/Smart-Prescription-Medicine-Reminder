@@ -64,3 +64,4 @@ model Log {
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
 }
+
