@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   // "PATIENT", "CAREGIVER", "DOCTOR"
+  createdAt DateTime @default(now())
+  
+  medicines     Medicine[]
+  prescriptions Prescription[]
+  schedules     Schedule[]
+  logs          Log[]
+}
+
+model Medicine {
+  id          Int      @id @default(autoincrement())
+  name        String
+  dosage      String
+  frequency   String   // e.g., "1-0-1"
+  stock       Int
+  expiryDate  DateTime?
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  schedules   Schedule[]
+}
+
+model Schedule {
+  id         Int      @id @default(autoincrement())
+  medicineId Int
+  medicine   Medicine @relation(fields: [medicineId], references: [id])
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  time       DateTime // The scheduled time for the dose
+  status     String   // "PENDING", "TAKEN", "MISSED"
+  takenAt    DateTime?
+}
+
+model Prescription {
+  id         Int      @id @default(autoincrement())
+  imageUrl   String
+  parsedData String?  // JSON string of extracted data
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model Log {
+  id        Int      @id @default(autoincrement())
+  action    String   // e.g., "Medicine Taken", "Refill Alert"
+  details   String?
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
